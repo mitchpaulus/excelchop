@@ -17,6 +17,6 @@ This will start at row 2, extracting data from columns A to D, stopping
 once it reaches a row in which all the values are empty or whitespace.
 
 The default delimiter is a tab character and output records are
-separated by a unix newline. excelchop also removes any newline
+separated by a Unix newline. excelchop also removes any newline
 characters within a field.
 

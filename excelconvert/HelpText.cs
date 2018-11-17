@@ -26,7 +26,7 @@ namespace excelconvert
             sb.AppendLine("once it reaches a row in which all the values are empty or whitespace.");
             sb.AppendLine("");
             sb.AppendLine("The default delimiter is a tab character and output records are");
-            sb.AppendLine("separated by a unix newline. excelchop also removes any newline");
+            sb.AppendLine("separated by a Unix newline. excelchop also removes any newline");
             sb.AppendLine("characters within a field.");
             sb.AppendLine("");
 
