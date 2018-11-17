@@ -36,4 +36,17 @@ The default delimiter is a tab character and output records are
 separated by a Unix newline. `excelchop` also removes any newline
 characters within a field.
 
+# Installation
+
+See the release pages for downloads.
+
+## Windows
+
+1. Extract the `excelchop-windows.zip` file.
+2. Add the extracted folder to your `PATH` environment variable.
+
+## Unix
+
+1. Extract the `excelchop-unix.zip` file.
+2. Symlink the `excelchop` binary to a location in `PATH`.
 
