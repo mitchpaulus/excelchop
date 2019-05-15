@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using OfficeOpenXml;
 
@@ -43,7 +44,7 @@ namespace excelconvert
 
                 option.OptionUpdate(argList.GetRange(i, option.ArgsConsumed), opts);
 
-                i = i + (option.ArgsConsumed - 1);
+                i += option.ArgsConsumed - 1;
             }
 
             if (opts.HelpWanted)
@@ -82,6 +83,9 @@ namespace excelconvert
                 if (options.RangeSpecified)
                 {
                     int numberOfColons = options.Range.Count(c => c == ':');
+
+                    // This handles the normal cases of explicit ranges, like A1:C3 or just a
+                    // single cell A2
                     if (numberOfColons < 2)
                     {
                         ExcelRange range = sheet.Cells[options.Range];
@@ -107,20 +111,26 @@ namespace excelconvert
 
                         string startColumn = rangeInputs[1];
                         string endColumn = rangeInputs[2];
-                        var rowChecker = BuildRowCheck(sheet, startColumn, endColumn);
-                        var rangeBuilder = RangeBuilder(startColumn, endColumn);
+
+                        int startColumnInt = startColumn.ExcelColumnNameToNumber();
+                        int endColumnInt = endColumn.ExcelColumnNameToNumber();
+                        int columnCount = endColumnInt - startColumnInt + 1;
+                        List<int> columnNumbers = Enumerable.Range(startColumnInt, columnCount).ToList();
+
+                        Func<int, bool> rowChecker = BuildRowCheck(sheet, startColumn, endColumn);
 
                         int currentRow = startRow;
-                        
+
                         List<string> records = new List<string>();
                         while (rowChecker(currentRow))
                         {
-                            IEnumerable<string> fields = sheet.Cells[rangeBuilder(currentRow)].Select(cell => cell.Text.RemoveNewlines()); 
+                            int row = currentRow;
+                            IEnumerable<string> fields = columnNumbers.Select(col => sheet.Cells[row, col].Text.RemoveNewlines());
                             records.Add(string.Join(options.Delimiter, fields) + "\n");
                             currentRow++;
                         }
 
-                        string output = string.Join(string.Empty, records);
+                        string output = string.Concat(records);
                         Console.Out.Write(output);
                     }
                 }
@@ -270,5 +280,25 @@ namespace excelconvert
             }
             return newString.ToString();
         }
+
+        public static int ExcelColumnNameToNumber(this string columnName)
+        {
+            if (string.IsNullOrEmpty(columnName)) throw new ArgumentNullException(nameof(columnName));
+
+            columnName = columnName.ToUpperInvariant();
+
+            int sum = 0;
+
+            foreach (char c in columnName)
+            {
+                sum *= 26;
+                sum += (c - 'A' + 1);
+            }
+
+            return sum;
+        }
     }
+
+
+
 }
