@@ -5,6 +5,10 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <AssemblyName>excelchop</AssemblyName>
     <GenerateProgramFile>false</GenerateProgramFile>
+    <RootNamespace>excelchop</RootNamespace>
+    <Authors>Mitchell T. Paulus</Authors>
+    <Description>Extract information out of Microsoft Excel file to standard output.</Description>
+    <Copyright>2019</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using Newtonsoft.Json;
+using excelchop;
 using OfficeOpenXml;
 
-namespace excelconvert
+namespace excelchop
 {
     class Program
     {
@@ -19,6 +18,7 @@ namespace excelconvert
                 new RangeOption(),
                 new WorksheetOption(),
                 new DelimiterOption(),
+                new DateTimeFormatOption(),
                 new VersionOption(),
             };
 
@@ -66,7 +66,7 @@ namespace excelconvert
             Run(opts);
         }
 
-        static void Run(ConvertOptions options)
+        private static void Run(ConvertOptions options)
         {
             string fullPath = Path.GetFullPath(options.Filename);
             if (!File.Exists(fullPath))
@@ -125,7 +125,7 @@ namespace excelconvert
                         while (rowChecker(currentRow))
                         {
                             int row = currentRow;
-                            IEnumerable<string> fields = columnNumbers.Select(col => sheet.Cells[row, col].Text.RemoveNewlines());
+                            IEnumerable<string> fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat).RemoveNewlines());
                             records.Add(string.Join(options.Delimiter, fields) + "\n");
                             currentRow++;
                         }
@@ -159,6 +159,7 @@ namespace excelconvert
             return row => sheet.Cells[$"{startColumn}{row}:{endColumn}{row}"].Any(cell => !string.IsNullOrWhiteSpace(cell.Text));
         }
 
+        private static string CellText(ExcelRangeBase range, string dateFormat) => range.Value is DateTime dateCell ? dateCell.ToString(dateFormat) : range.Text;
 
         private static string GetOutput(ConvertOptions options, int startRow, int endRow, int startColumn, int endColumn, ExcelWorksheet sheet)
         {
@@ -213,7 +214,7 @@ namespace excelconvert
                 options.Range = args.Last();
             }
 
-            public string HelpText => "Specify range (A1:B2 or 2:A:B style)";
+            public string HelpText => $"Specify range (A1:B2 or 2:A:B style) [{new ConvertOptions().Range}]";
         }
 
         public class WorksheetOption : IOption
@@ -227,7 +228,7 @@ namespace excelconvert
                 options.WorksheetName = args.Last();
             }
 
-            public string HelpText => "Worksheet name";
+            public string HelpText => "Worksheet name [first sheet]";
         }
 
         public class DelimiterOption : IOption
@@ -240,7 +241,20 @@ namespace excelconvert
                 options.Delimiter = args.Last();
             }
 
-            public string HelpText => "Field delimiter";
+            public string HelpText => "Output field delimiter [tab]";
+        }
+
+        public class DateTimeFormatOption : IOption
+        {
+            public char ShortName => 'D';
+
+            public string LongName => "dateformat";
+
+            public int ArgsConsumed => 2;
+
+            public void OptionUpdate(List<string> args, ConvertOptions options) => options.DateFormat = args.Last();
+
+            public string HelpText => "Output format for date cells, .NET style [yyyy-MM-dd]";
         }
 
         public class VersionOption : IOption
@@ -266,6 +280,7 @@ namespace excelconvert
             public string WorksheetName = "Sheet 1";
             public string Delimiter = "\t";
             public bool VersionWanted = false;
+            public string DateFormat = "yyyy-MM-dd";
         }
     }
 
@@ -298,7 +313,4 @@ namespace excelconvert
             return sum;
         }
     }
-
-
-
 }

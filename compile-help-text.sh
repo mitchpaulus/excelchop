@@ -4,7 +4,7 @@
 cat <<'EOF'
 using System.Text;
 
-namespace excelconvert
+namespace excelchop
 {
     public static class HelpText
     {
@@ -25,5 +25,4 @@ EOF
 
 while read line; do printf "            %s\"%s\"%s\n" 'sb.AppendLine(' "$line" ');' ; done < helptext.md
 
-#printf "%s%s%s" "$begintext" "lines" "endtext" >> excelconvert\HelpText.cs
-printf "%s\n%s\n%s\n" "$begintext" "$lines" "$endtext" 
+printf "%s\n%s\n%s\n" "$begintext" "$lines" "$endtext"

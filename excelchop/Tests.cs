@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using NUnit.Framework;
 
-namespace excelconvert
+namespace excelchop
 {
     [TestFixture]
     public class Tests

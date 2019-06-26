@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace excelconvert
+namespace excelchop
 {
     public static class HelpText
     {
