@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using excelchop;
 using OfficeOpenXml;
 
@@ -281,36 +280,6 @@ namespace excelchop
             public string Delimiter = "\t";
             public bool VersionWanted = false;
             public string DateFormat = "yyyy-MM-dd";
-        }
-    }
-
-    public static class StringExtensions
-    {
-        public static string RemoveNewlines(this string text)
-        {
-            StringBuilder newString = new StringBuilder(text.Length);
-            foreach (char t in text)
-            {
-                if (t != '\r' && t != '\n') newString.Append(t);
-            }
-            return newString.ToString();
-        }
-
-        public static int ExcelColumnNameToNumber(this string columnName)
-        {
-            if (string.IsNullOrEmpty(columnName)) throw new ArgumentNullException(nameof(columnName));
-
-            columnName = columnName.ToUpperInvariant();
-
-            int sum = 0;
-
-            foreach (char c in columnName)
-            {
-                sum *= 26;
-                sum += (c - 'A' + 1);
-            }
-
-            return sum;
         }
     }
 }
