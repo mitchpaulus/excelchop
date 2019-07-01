@@ -23,7 +23,9 @@ namespace excelchop
             sb.AppendLine("excelchop -r 2:A:D excelfile.xlsx");
             sb.AppendLine("");
             sb.AppendLine("This will start at row 2, extracting data from columns A to D, stopping");
-            sb.AppendLine("once it reaches a row in which all the values are empty or whitespace.");
+            sb.AppendLine("once it reaches a row in which ANY of the values are empty or");
+            sb.AppendLine("whitespace. You can use the options -A, -s, or -S, to change this");
+            sb.AppendLine("stopping behavior.");
             sb.AppendLine("");
             sb.AppendLine("The default delimiter is a tab character and output records are");
             sb.AppendLine("separated by a Unix newline. excelchop also removes any newline");

@@ -19,6 +19,9 @@ namespace excelchop
                 new DelimiterOption(),
                 new DateTimeFormatOption(),
                 new VersionOption(),
+                new AllFieldsAllBlankOption(),
+                new StopAnyOption(),
+                new StopAllOption(),
             };
 
             var argList = args.ToList();
@@ -111,17 +114,17 @@ namespace excelchop
                         string startColumn = rangeInputs[1];
                         string endColumn = rangeInputs[2];
 
-                        int startColumnInt = startColumn.ExcelColumnNameToNumber();
-                        int endColumnInt = endColumn.ExcelColumnNameToNumber();
+                        int startColumnInt = startColumn.ExcelColumnNameToInt();
+                        int endColumnInt = endColumn.ExcelColumnNameToInt();
                         int columnCount = endColumnInt - startColumnInt + 1;
                         List<int> columnNumbers = Enumerable.Range(startColumnInt, columnCount).ToList();
 
-                        Func<int, bool> rowChecker = BuildRowCheck(sheet, startColumn, endColumn);
+                        Func<int, bool> rowInvalid = options.RowInvalid(sheet, startColumn, endColumn);
 
                         int currentRow = startRow;
 
                         List<string> records = new List<string>();
-                        while (rowChecker(currentRow))
+                        while (!rowInvalid(currentRow))
                         {
                             int row = currentRow;
                             IEnumerable<string> fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat).RemoveNewlines());
@@ -150,12 +153,38 @@ namespace excelchop
 
         private static Func<int, string> RangeBuilder(string startColumn, string endColumn)
         {
-            return row => $"{startColumn}{row}:{endColumn}{row}";
+            return row =>  $"{startColumn}{row}:{endColumn}{row}";
         }
 
-        private static Func<int, bool> BuildRowCheck(ExcelWorksheet sheet, string startColumn, string endColumn)
+        private static Func<int, bool> AllFieldsAnyBlank(ExcelWorksheet sheet, string startColumn, string endColumn)
         {
-            return row => sheet.Cells[$"{startColumn}{row}:{endColumn}{row}"].Any(cell => !string.IsNullOrWhiteSpace(cell.Text));
+            return row =>
+            {
+                int startCol = startColumn.ExcelColumnNameToInt();
+                int endCol = endColumn.ExcelColumnNameToInt();
+
+                for (int col  = startCol;  col <= endCol; col++)
+                {
+                    if (string.IsNullOrWhiteSpace(sheet.Cells[row, col].Text)) return true;
+                }
+
+                return false;
+            };
+        }
+        private static Func<int, bool> AllFieldsAllBlank(ExcelWorksheet sheet, string startColumn, string endColumn)
+        {
+            return row =>
+            {
+                int startCol = startColumn.ExcelColumnNameToInt();
+                int endCol = endColumn.ExcelColumnNameToInt();
+
+                for (int col  = startCol;  col <= endCol; col++)
+                {
+                    if (!string.IsNullOrWhiteSpace(sheet.Cells[row, col].Text)) return false;
+                }
+
+                return true;
+            };
         }
 
         private static string CellText(ExcelRangeBase range, string dateFormat) => range.Value is DateTime dateCell ? dateCell.ToString(dateFormat) : range.Text;
@@ -179,8 +208,7 @@ namespace excelchop
             return output;
         }
 
-
-        interface IOption
+        private interface IOption
         {
             char ShortName { get; }
             string LongName { get; }
@@ -269,6 +297,56 @@ namespace excelchop
             public string HelpText => "Show version and exit";
         }
 
+        public class AllFieldsAllBlankOption : IOption
+        {
+            public char ShortName => 'A';
+
+            public string LongName => "all-fields-all-blank";
+
+            public int ArgsConsumed => 1;
+
+            public void OptionUpdate(List<string> args, ConvertOptions options) => options.RowInvalid = AllFieldsAllBlank;
+
+            public string HelpText => "Stop reading when all fields in complete range are blank before stopping.";
+        }
+
+        public class StopAllOption : IOption
+        {
+            public char ShortName => 's';
+
+            public string LongName => "stop-all";
+
+            public int ArgsConsumed => 2;
+
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                List<int> columns = args.Last().ColsFromList();
+
+                options.RowInvalid = (sheet, start, end) => { return row => columns.All(col => string.IsNullOrWhiteSpace(sheet.Cells[row, col].Text)); };
+            }
+
+            public string HelpText => "Stop reading when all columns specified are empty. Specify columns as comma separated list.";
+        }
+
+        public class StopAnyOption : IOption
+        {
+            public char ShortName => 'S';
+
+            public string LongName => "stop-any";
+
+            public int ArgsConsumed => 2;
+
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                List<int> columns = args.Last().ColsFromList();
+
+                options.RowInvalid = (sheet, start, end) => { return row => columns.Any(col => string.IsNullOrWhiteSpace(sheet.Cells[row, col].Text)); };
+            }
+
+            public string HelpText => "Stop reading when any columns specified are empty. Specify columns as comma separated list.";
+        }
+
+
         public class ConvertOptions
         {
             public string Filename;
@@ -280,6 +358,10 @@ namespace excelchop
             public string Delimiter = "\t";
             public bool VersionWanted = false;
             public string DateFormat = "yyyy-MM-dd";
+            public RowCheckFunction RowInvalid = AllFieldsAnyBlank;
         }
+
+        public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);
+
     }
 }

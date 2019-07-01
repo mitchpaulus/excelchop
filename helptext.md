@@ -4,7 +4,7 @@ to achieve your goals.
 
 By default, excelchop will return all the data within the first
 worksheet. Using the '-r' option, you can specify a subset range. You
-can either specify the range like 
+can either specify the range like
 
 excelchop -r A1:B10 excelfile.xlsx
 
@@ -14,7 +14,9 @@ use the special range syntax 'startrow:startcolumn:endcolumn'.
 excelchop -r 2:A:D excelfile.xlsx
 
 This will start at row 2, extracting data from columns A to D, stopping
-once it reaches a row in which all the values are empty or whitespace.
+once it reaches a row in which ANY of the values are empty or
+whitespace. You can use the options -A, -s, or -S, to change this
+stopping behavior.
 
 The default delimiter is a tab character and output records are
 separated by a Unix newline. excelchop also removes any newline

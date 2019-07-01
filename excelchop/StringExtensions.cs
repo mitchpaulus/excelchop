@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace excelchop
@@ -15,7 +17,7 @@ namespace excelchop
             return newString.ToString();
         }
 
-        public static int ExcelColumnNameToNumber(this string columnName)
+        public static int ExcelColumnNameToInt(this string columnName)
         {
             if (string.IsNullOrEmpty(columnName)) throw new ArgumentNullException(nameof(columnName));
 
@@ -30,6 +32,13 @@ namespace excelchop
             }
 
             return sum;
+        }
+
+        public static List<int> ColsFromList(this string optionList)
+        {
+            return optionList.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => int.TryParse(s.Trim(), out int col) ? col : s.Trim().ExcelColumnNameToInt())
+            .ToList();
         }
     }
 }
