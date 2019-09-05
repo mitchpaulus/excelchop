@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using excelchop;
 using OfficeOpenXml;
 
@@ -84,23 +85,40 @@ namespace excelchop
 
                 if (options.RangeSpecified)
                 {
-                    int numberOfColons = options.Range.Count(c => c == ':');
+                    var splitRange = options.Range.Split(':');
 
                     // This handles the normal cases of explicit ranges, like A1:C3 or just a
                     // single cell A2
-                    if (numberOfColons < 2)
+                    if (splitRange.Length == 1)
                     {
-                        ExcelRange range = sheet.Cells[options.Range];
+                        var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell cellLocation);
 
-                        int startRow = range.Start.Row;
-                        int endRow = range.End.Row;
-                        int startColumn = range.Start.Column;
-                        int endColumn = range.End.Column;
-
-                        string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
-                        Console.Out.Write(output);
+                        if (success)
+                        {
+                            string output = GetOutput(options, cellLocation.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
+                            Console.Out.Write(output);
+                        }
+                        else
+                        {
+                            Console.Out.WriteLine($"Could not parse cell reference {options.Range}.");
+                        }
                     }
-                    else if (numberOfColons == 2)
+                    else if (splitRange.Length == 2)
+                    {
+                        var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell startCellLocation);
+                        var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell endCellLocation);
+
+                        if (firstCellSuccess && secondCellSuccess)
+                        {
+                            string output = GetOutput(options, startCellLocation.Row, endCellLocation.Row, startCellLocation.Column, endCellLocation.Column, sheet);
+                            Console.Out.Write(output);
+                        }
+                        else
+                        {
+                            Console.Out.WriteLine($"Could not parse cell reference {options.Range}.");
+                        }
+                    }
+                    else if (splitRange.Length == 3)
                     {
                         string[] rangeInputs = options.Range.Split(':');
 
@@ -189,13 +207,13 @@ namespace excelchop
 
         private static string CellText(ExcelRangeBase range, string dateFormat) => range.Value is DateTime dateCell ? dateCell.ToString(dateFormat) : range.Text;
 
-        private static string GetOutput(ConvertOptions options, int startRow, int endRow, int startColumn, int endColumn, ExcelWorksheet sheet)
+        private static string GetOutput(ConvertOptions options, int startRow, int endRowInc, int startColumn, int endColumnInc, ExcelWorksheet sheet)
         {
             List<List<string>> values = new List<List<string>>();
-            for (int row = startRow; row <= endRow; row++)
+            for (int row = startRow; row <= endRowInc; row++)
             {
                 values.Add(new List<string>());
-                for (int column = startColumn; column <= endColumn; column++)
+                for (int column = startColumn; column <= endColumnInc; column++)
                 {
                     // Remove all newlines as they wreck everything.
                     string cleanText = sheet.Cells[row, column].Text.RemoveNewlines();
@@ -203,8 +221,8 @@ namespace excelchop
                 }
             }
 
-            IEnumerable<string> lines = values.Select(list => string.Join(options.Delimiter, list));
-            string output = string.Join("\n", lines) + "\n";
+            IEnumerable<string> lines = values.Select(list => string.Join(options.Delimiter, list) + "\n");
+            string output = string.Concat(lines);
             return output;
         }
 
