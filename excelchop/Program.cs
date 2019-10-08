@@ -216,7 +216,7 @@ namespace excelchop
                 for (int column = startColumn; column <= endColumnInc; column++)
                 {
                     // Remove all newlines as they wreck everything.
-                    string cleanText = sheet.Cells[row, column].Text.RemoveNewlines();
+                    string cleanText =  CellText(sheet.Cells[row, column], options.DateFormat).RemoveNewlines();
                     values.Last().Add(cleanText);
                 }
             }
