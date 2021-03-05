@@ -23,6 +23,7 @@ namespace excelchop
                 new AllFieldsAllBlankOption(),
                 new StopAnyOption(),
                 new StopAllOption(),
+                new PrintInfoOption(),
             };
 
             var argList = args.ToList();
@@ -75,13 +76,42 @@ namespace excelchop
             if (!File.Exists(fullPath))
             {
                 Console.Out.WriteLine($"Could not locate file {fullPath}.");
+                return;
             }
 
             FileInfo fileInfo = new FileInfo(fullPath);
 
             using (ExcelPackage excelFile = new ExcelPackage(fileInfo))
             {
-                ExcelWorksheet sheet = options.SheetSpecified ? excelFile.Workbook.Worksheets[options.WorksheetName] : excelFile.Workbook.Worksheets.First();
+
+                if (options.PrintOption == PrintOption.Worksheets)
+                {
+                    Console.Out.Write(string.Concat(excelFile.Workbook.Worksheets.Select(s => s.Name + '\n')));
+                    return;
+                }
+
+                ExcelWorksheet sheet;
+                if (options.SheetSpecified)
+                {
+                    if (excelFile.Workbook.Worksheets.Select(s => s.Name).Contains(options.WorksheetName))
+                    {
+                        sheet = excelFile.Workbook.Worksheets[options.WorksheetName];
+                    }
+                    else
+                    {
+                        Console.Out.WriteLine($"No worksheet named {options.WorksheetName} found in {fullPath}.");
+                        return;
+                    }
+                }
+                else
+                {
+                    if (excelFile.Workbook.Worksheets.Any()) sheet = excelFile.Workbook.Worksheets.First();
+                    else
+                    {
+                        Console.Out.WriteLine($"There are no worksheets in {fullPath}.");
+                        return;
+                    }
+                }
 
                 if (options.RangeSpecified)
                 {
@@ -364,6 +394,23 @@ namespace excelchop
             public string HelpText => "Stop reading when any columns specified are empty. Specify columns as comma separated list.";
         }
 
+        public class PrintInfoOption : IOption
+        {
+            public char ShortName => 'p';
+            public string LongName => "print";
+            public int ArgsConsumed => 2;
+            public string HelpText => "Print information about workbook. w = worksheet names";
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                options.PrintOption = PrintOption.Worksheets;
+            }
+        }
+
+        public enum PrintOption
+        {
+            Data = 0,
+            Worksheets = 1
+        }
 
         public class ConvertOptions
         {
@@ -377,6 +424,7 @@ namespace excelchop
             public bool VersionWanted = false;
             public string DateFormat = "yyyy-MM-dd";
             public RowCheckFunction RowInvalid = AllFieldsAnyBlank;
+            public PrintOption PrintOption = PrintOption.Data;
         }
 
         public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);
