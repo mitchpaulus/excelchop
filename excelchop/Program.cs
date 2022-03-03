@@ -19,6 +19,7 @@ namespace excelchop
                 new WorksheetOption(),
                 new DelimiterOption(),
                 new DateTimeFormatOption(),
+                new EscapeNewLinesOption(),
                 new VersionOption(),
                 new AllFieldsAllBlankOption(),
                 new StopAnyOption(),
@@ -36,7 +37,7 @@ namespace excelchop
                 var option = availableOptions.FirstOrDefault(o => (("-" + o.ShortName) == arg || ("--" + o.LongName) == arg));
                 if (option == null && i != args.Length - 1)
                 {
-                    Console.Out.WriteLine($"Unknown option {arg}");
+                    Console.Error.Write($"Unknown option {arg}\n");
                     return;
                 }
 
@@ -53,18 +54,18 @@ namespace excelchop
 
             if (opts.HelpWanted)
             {
-                Console.Out.WriteLine("Usage: excelchop [options...] excel_file\n\nOptions:");
+                Console.Out.Write("Usage: excelchop [options...] excel_file\n\nOptions:\n");
 
-                var optionText = availableOptions.Select(option => $"    -{option.ShortName}  --{ ($"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>"  : "")}"),-15}    {option.HelpText}\n");
+                var optionText = availableOptions.OrderBy(option => option.ShortName).Select(option => $"    -{option.ShortName}  --{ ($"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>"  : "")}"),-23}   {option.HelpText}\n");
                 Console.Out.Write(string.Join(string.Empty, optionText));
 
-                Console.Out.WriteLine("\n" + HelpText.Text());
+                Console.Out.Write("\n" + HelpText.Text());
                 return;
             }
 
             if (opts.VersionWanted)
             {
-                Console.Out.WriteLine("Version 0.1");
+                Console.Out.Write("0.1.0\n");
             }
 
             Run(opts);
@@ -75,7 +76,7 @@ namespace excelchop
             string fullPath = Path.GetFullPath(options.Filename);
             if (!File.Exists(fullPath))
             {
-                Console.Out.WriteLine($"Could not locate file {fullPath}.");
+                Console.Error.Write($"Could not locate file {fullPath}.\n");
                 return;
             }
 
@@ -99,7 +100,7 @@ namespace excelchop
                     }
                     else
                     {
-                        Console.Out.WriteLine($"No worksheet named {options.WorksheetName} found in {fullPath}.");
+                        Console.Error.Write($"No worksheet named {options.WorksheetName} found in {fullPath}.\n");
                         return;
                     }
                 }
@@ -108,7 +109,7 @@ namespace excelchop
                     if (excelFile.Workbook.Worksheets.Any()) sheet = excelFile.Workbook.Worksheets.First();
                     else
                     {
-                        Console.Out.WriteLine($"There are no worksheets in {fullPath}.");
+                        Console.Error.Write($"There are no worksheets in {fullPath}.\n");
                         return;
                     }
                 }
@@ -130,7 +131,7 @@ namespace excelchop
                         }
                         else
                         {
-                            Console.Out.WriteLine($"Could not parse cell reference {options.Range}.");
+                            Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
                         }
                     }
                     else if (splitRange.Length == 2)
@@ -145,7 +146,7 @@ namespace excelchop
                         }
                         else
                         {
-                            Console.Out.WriteLine($"Could not parse cell reference {options.Range}.");
+                            Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
                         }
                     }
                     else if (splitRange.Length == 3)
@@ -155,7 +156,7 @@ namespace excelchop
                         bool success = int.TryParse(rangeInputs[0], out int startRow);
                         if (!success)
                         {
-                            Console.Out.WriteLine($"Could not parse the start line {rangeInputs[0]} in the range specifier {options.Range}.");
+                            Console.Error.Write($"Could not parse the start line {rangeInputs[0]} in the range specifier {options.Range}.\n");
                             return;
                         }
 
@@ -175,7 +176,18 @@ namespace excelchop
                         while (!rowInvalid(currentRow))
                         {
                             int row = currentRow;
-                            IEnumerable<string> fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat).RemoveNewlines());
+                            IEnumerable<string> fields;
+                            if (options.EscapeNewlines)
+                            {
+                                fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat).EscapeNewlines());
+                            }
+                            else
+                            {
+                                fields = columnNumbers.Select(col =>
+                                    CellText(sheet.Cells[row, col], options.DateFormat)
+                                        .Replace("\r", "")
+                                        .Replace("\n", " "));
+                            }
                             records.Add(string.Join(options.Delimiter, fields) + "\n");
                             currentRow++;
                         }
@@ -245,8 +257,18 @@ namespace excelchop
                 values.Add(new List<string>());
                 for (int column = startColumn; column <= endColumnInc; column++)
                 {
+                    string cleanText;
                     // Remove all newlines as they wreck everything.
-                    string cleanText =  CellText(sheet.Cells[row, column], options.DateFormat).RemoveNewlines();
+                    if (options.EscapeNewlines)
+                    {
+                        cleanText =  CellText(sheet.Cells[row, column], options.DateFormat).EscapeNewlines();
+                    }
+                    else
+                    {
+                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat)
+                            .Replace("\r", "")
+                            .Replace("\n", " ");
+                    }
                     values.Last().Add(cleanText);
                 }
             }
@@ -406,6 +428,19 @@ namespace excelchop
             }
         }
 
+        public class EscapeNewLinesOption : IOption
+        {
+            public char ShortName => 'e';
+            public string LongName => "escape";
+            public int ArgsConsumed => 1;
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                options.EscapeNewlines = true;
+            }
+
+            public string HelpText => "Escape newlines with '\\n' characters";
+        }
+
         public enum PrintOption
         {
             Data = 0,
@@ -425,6 +460,7 @@ namespace excelchop
             public string DateFormat = "yyyy-MM-dd";
             public RowCheckFunction RowInvalid = AllFieldsAnyBlank;
             public PrintOption PrintOption = PrintOption.Data;
+            public bool EscapeNewlines = false;
         }
 
         public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);

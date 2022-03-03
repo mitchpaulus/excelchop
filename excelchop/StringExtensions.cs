@@ -7,12 +7,16 @@ namespace excelchop
 {
     public static class StringExtensions
     {
-        public static string RemoveNewlines(this string text)
+        public static string EscapeNewlines(this string text)
         {
             StringBuilder newString = new StringBuilder(text.Length);
             foreach (char t in text)
             {
-                if (t != '\r' && t != '\n') newString.Append(t);
+                // Remove carriage returns
+                if (t == '\r') continue;
+
+                if (t == '\n') newString.Append("\\n");
+                else newString.Append(t);
             }
             return newString.ToString();
         }
