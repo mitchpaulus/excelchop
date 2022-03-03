@@ -20,7 +20,7 @@ to achieve your goals.
 
 By default, `excelchop` will return all the data within the first
 worksheet. Using the '-r' option, you can specify a subset range. You
-can either specify the range like 
+can either specify the range like
 
 `excelchop -r A1:B10 excelfile.xlsx`
 
@@ -39,14 +39,18 @@ characters within a field.
 # Installation
 
 See the release pages for downloads.
+There are releases for Windows and Linux, and for each there is one as a single, self contained executable,
+and another as folder for a framework-dependent version.
+The framework-dependent versions require the .NET runtime be already installed.
+The self-contained versions will run without any other prerequisites, but are larger in size.
 
 ## Windows
 
-1. Extract the `excelchop-windows.zip` file.
-2. Add the extracted folder to your `PATH` environment variable.
+1. Extract the `win-x64-self-contained.zip` or `win-x64-framework-dependent.zip` file.
+2. Add the extracted directory to your `PATH` environment variable.
 
 ## Unix
 
-1. Extract the `excelchop-unix.zip` file.
+1. Extract the `linux-x64-self-contained.zip` or `linux-x64-framework-dependent.zip` file.
 2. Symlink the `excelchop` binary to a location in `PATH`.
 
