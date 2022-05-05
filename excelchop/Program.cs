@@ -67,7 +67,7 @@ namespace excelchop
 
             if (opts.VersionWanted)
             {
-                Console.Out.Write("0.2.2 - 2022-03-03\n");
+                Console.Out.Write("0.2.3 - 2022-05-05\n");
                 return;
             }
 
@@ -76,7 +76,7 @@ namespace excelchop
 
         private static void Run(ConvertOptions options)
         {
-            if (options.Filename == null) 
+            if (options.Filename == null)
             {
                 Console.Error.Write("A file path to an existing Excel file needs to be provided.\n");
                 Environment.ExitCode = 1;
