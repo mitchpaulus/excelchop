@@ -38,6 +38,8 @@ namespace excelchop
                 if (option == null && i != args.Length - 1)
                 {
                     Console.Error.Write($"Unknown option {arg}\n");
+                    Environment.ExitCode = 1;
+
                     return;
                 }
 
@@ -74,10 +76,18 @@ namespace excelchop
 
         private static void Run(ConvertOptions options)
         {
+            if (options.Filename == null) 
+            {
+                Console.Error.Write("A file path to an existing Excel file needs to be provided.\n");
+                Environment.ExitCode = 1;
+                return;
+            }
+
             string fullPath = Path.GetFullPath(options.Filename);
             if (!File.Exists(fullPath))
             {
-                Console.Error.Write($"Could not locate file {fullPath}.\n");
+                Console.Error.Write($"Could not locate file '{fullPath}'.\n");
+                Environment.ExitCode = 1;
                 return;
             }
 
@@ -102,6 +112,7 @@ namespace excelchop
                     else
                     {
                         Console.Error.Write($"No worksheet named {options.WorksheetName} found in {fullPath}.\n");
+                        Environment.ExitCode = 1;
                         return;
                     }
                 }
@@ -111,6 +122,7 @@ namespace excelchop
                     else
                     {
                         Console.Error.Write($"There are no worksheets in {fullPath}.\n");
+                        Environment.ExitCode = 1;
                         return;
                     }
                 }
@@ -133,6 +145,7 @@ namespace excelchop
                         else
                         {
                             Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
+                            Environment.ExitCode = 1;
                         }
                     }
                     else if (splitRange.Length == 2)
@@ -148,6 +161,7 @@ namespace excelchop
                         else
                         {
                             Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
+                            Environment.ExitCode = 1;
                         }
                     }
                     else if (splitRange.Length == 3)
@@ -158,6 +172,7 @@ namespace excelchop
                         if (!success)
                         {
                             Console.Error.Write($"Could not parse the start line {rangeInputs[0]} in the range specifier {options.Range}.\n");
+                            Environment.ExitCode = 1;
                             return;
                         }
 
