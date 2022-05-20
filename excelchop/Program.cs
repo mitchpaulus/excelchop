@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-using excelchop;
 using OfficeOpenXml;
 
 namespace excelchop
@@ -25,21 +23,27 @@ namespace excelchop
                 new StopAnyOption(),
                 new StopAllOption(),
                 new PrintInfoOption(),
+                new SigFigsOption(),
             };
 
             var argList = args.ToList();
             ConvertOptions opts = new ConvertOptions();
 
+            bool OptionMatches(string arg, IOption option)
+            {
+                if (option.ShortName != null && "-" + option.ShortName == arg) return true;
+                return "--" + option.LongName == arg;
+            }
+
             for (int i = 0; i < args.Length; i++)
             {
                 string arg = args[i];
 
-                var option = availableOptions.FirstOrDefault(o => (("-" + o.ShortName) == arg || ("--" + o.LongName) == arg));
+                var option = availableOptions.FirstOrDefault(o => OptionMatches(arg, o));
                 if (option == null && i != args.Length - 1)
                 {
                     Console.Error.Write($"Unknown option {arg}\n");
                     Environment.ExitCode = 1;
-
                     return;
                 }
 
@@ -49,18 +53,25 @@ namespace excelchop
                     continue;
                 }
 
-                option.OptionUpdate(argList.GetRange(i, option.ArgsConsumed), opts);
+                try
+                {
+                    option!.OptionUpdate(argList.GetRange(i, option.ArgsConsumed), opts);
+                }
+                catch (ExcelChopKnownException ex)
+                {
+                    Environment.ExitCode = 1;
+                    Console.Error.Write(ex.Message);
+                }
 
-                i += option.ArgsConsumed - 1;
+                i += option!.ArgsConsumed - 1;
             }
 
             if (opts.HelpWanted)
             {
                 Console.Out.Write("Usage: excelchop [options...] excel_file\n\nOptions:\n");
 
-                var optionText = availableOptions.OrderBy(option => option.ShortName).Select(option => $"    -{option.ShortName}  --{ ($"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>"  : "")}"),-23}   {option.HelpText}\n");
+                IEnumerable<string> optionText = availableOptions.OrderBy(option => option.ShortName).Select(FormatOptionHelpLine);
                 Console.Out.Write(string.Join(string.Empty, optionText));
-
                 Console.Out.Write("\n" + HelpText.Text());
                 return;
             }
@@ -71,7 +82,20 @@ namespace excelchop
                 return;
             }
 
-            Run(opts);
+            try
+            {
+                Run(opts);
+            }
+            catch (ExcelChopKnownException knownException)
+            {
+                Environment.ExitCode = 1;
+                Console.Error.Write(knownException.Message.EndWithSingleNewline());
+            }
+            catch
+            {
+                Environment.ExitCode = 1;
+                Console.Error.Write("There was an unhandled exception. Please feel free to open an issue on GitHub at https://github.com/mitchpaulus/excelchop.\n");
+            }
         }
 
         private static void Run(ConvertOptions options)
@@ -135,11 +159,11 @@ namespace excelchop
                     // single cell A2
                     if (splitRange.Length == 1)
                     {
-                        var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell cellLocation);
+                        var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell? cellLocation);
 
                         if (success)
                         {
-                            string output = GetOutput(options, cellLocation.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
+                            string output = GetOutput(options, cellLocation!.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
                             Console.Out.Write(output);
                         }
                         else
@@ -150,12 +174,12 @@ namespace excelchop
                     }
                     else if (splitRange.Length == 2)
                     {
-                        var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell startCellLocation);
-                        var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell endCellLocation);
+                        var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell? startCellLocation);
+                        var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell? endCellLocation);
 
                         if (firstCellSuccess && secondCellSuccess)
                         {
-                            string output = GetOutput(options, startCellLocation.Row, endCellLocation.Row, startCellLocation.Column, endCellLocation.Column, sheet);
+                            string output = GetOutput(options, startCellLocation!.Row, endCellLocation!.Row, startCellLocation.Column, endCellLocation.Column, sheet);
                             Console.Out.Write(output);
                         }
                         else
@@ -195,12 +219,12 @@ namespace excelchop
                             IEnumerable<string> fields;
                             if (options.EscapeNewlines)
                             {
-                                fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat).EscapeNewlines());
+                                fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits).EscapeNewlines());
                             }
                             else
                             {
                                 fields = columnNumbers.Select(col =>
-                                    CellText(sheet.Cells[row, col], options.DateFormat)
+                                    CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits)
                                         .Replace("\r", "")
                                         .Replace("\n", " "));
                             }
@@ -225,6 +249,13 @@ namespace excelchop
                     Console.Out.Write(output);
                 }
             }
+        }
+
+        public static string FormatOptionHelpLine(IOption option)
+        {
+            return option.ShortName == null ?
+                $"        --{($"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>" : "")}"),-23}   {option.HelpText}\n" :
+                $"    -{option.ShortName}  --{($"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>" : "")}"),-23}   {option.HelpText}\n";
         }
 
         private static Func<int, string> RangeBuilder(string startColumn, string endColumn)
@@ -263,7 +294,28 @@ namespace excelchop
             };
         }
 
-        private static string CellText(ExcelRangeBase range, string dateFormat) => range.Value is DateTime dateCell ? dateCell.ToString(dateFormat) : range.Text;
+        private static string CellText(ExcelRangeBase range, string dateFormat, int? significantDigits)
+        {
+            if (range.Value is DateTime dateCell)
+            {
+                try
+                {
+                    string dateText = dateCell.ToString(dateFormat);
+                    return dateText;
+                }
+                catch (FormatException)
+                {
+                    throw new ExcelChopKnownException($"The datetime format '{dateFormat}' was not valid.");
+                }
+            }
+
+            if (significantDigits != null && range.Value is double doubleCell)
+            {
+                return doubleCell.ToSigFigs((int) significantDigits);
+            }
+
+            return range.Text;
+        }
 
         private static string GetOutput(ConvertOptions options, int startRow, int endRowInc, int startColumn, int endColumnInc, ExcelWorksheet sheet)
         {
@@ -277,11 +329,11 @@ namespace excelchop
                     // Remove all newlines as they wreck everything.
                     if (options.EscapeNewlines)
                     {
-                        cleanText =  CellText(sheet.Cells[row, column], options.DateFormat).EscapeNewlines();
+                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits).EscapeNewlines();
                     }
                     else
                     {
-                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat)
+                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits)
                             .Replace("\r", "")
                             .Replace("\n", " ");
                     }
@@ -294,9 +346,9 @@ namespace excelchop
             return output;
         }
 
-        private interface IOption
+        public interface IOption
         {
-            char ShortName { get; }
+            char? ShortName { get; }
             string LongName { get; }
             int ArgsConsumed { get; }
             void OptionUpdate(List<string> args, ConvertOptions options);
@@ -305,7 +357,7 @@ namespace excelchop
 
         public class HelpOption : IOption
         {
-            public char ShortName => 'h';
+            public char? ShortName => 'h';
             public string LongName => "help";
             public int ArgsConsumed => 1;
             public void OptionUpdate(List<string> args, ConvertOptions options)
@@ -318,7 +370,7 @@ namespace excelchop
 
         public class RangeOption : IOption
         {
-            public char ShortName => 'r';
+            public char? ShortName => 'r';
             public string LongName => "range";
             public int ArgsConsumed => 2;
             public void OptionUpdate(List<string> args, ConvertOptions options)
@@ -332,7 +384,7 @@ namespace excelchop
 
         public class WorksheetOption : IOption
         {
-            public char ShortName => 'w';
+            public char? ShortName => 'w';
             public string LongName => "sheet";
             public int ArgsConsumed => 2;
             public void OptionUpdate(List<string> args, ConvertOptions options)
@@ -346,7 +398,7 @@ namespace excelchop
 
         public class DelimiterOption : IOption
         {
-            public char ShortName => 'd';
+            public char? ShortName => 'd';
             public string LongName => "delim";
             public int ArgsConsumed => 2;
             public void OptionUpdate(List<string> args, ConvertOptions options)
@@ -359,7 +411,7 @@ namespace excelchop
 
         public class DateTimeFormatOption : IOption
         {
-            public char ShortName => 'D';
+            public char? ShortName => 'D';
 
             public string LongName => "dateformat";
 
@@ -370,9 +422,29 @@ namespace excelchop
             public string HelpText => "Output format for date cells, .NET style [yyyy-MM-dd]";
         }
 
+        public class SigFigsOption : IOption
+        {
+            public char? ShortName => null;
+            public string LongName => "sigfigs";
+            public int ArgsConsumed => 2;
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                try
+                {
+                    options.SignificantDigits = int.Parse(args.Last());
+                }
+                catch
+                {
+                    throw new ExcelChopKnownException($"Could not parse '{args.Last()}' as an integer.");
+                }
+            }
+
+            public string HelpText => "Integer significant figures for numeric cells. Default is to print using current excel format.";
+        }
+
         public class VersionOption : IOption
         {
-            public char ShortName => 'v';
+            public char? ShortName => 'v';
             public string LongName => "version";
             public int ArgsConsumed => 1;
             public void OptionUpdate(List<string> args, ConvertOptions options)
@@ -385,7 +457,7 @@ namespace excelchop
 
         public class AllFieldsAllBlankOption : IOption
         {
-            public char ShortName => 'A';
+            public char? ShortName => 'A';
 
             public string LongName => "all-fields-all-blank";
 
@@ -398,7 +470,7 @@ namespace excelchop
 
         public class StopAllOption : IOption
         {
-            public char ShortName => 's';
+            public char? ShortName => 's';
 
             public string LongName => "stop-all";
 
@@ -416,7 +488,7 @@ namespace excelchop
 
         public class StopAnyOption : IOption
         {
-            public char ShortName => 'S';
+            public char? ShortName => 'S';
 
             public string LongName => "stop-any";
 
@@ -434,7 +506,7 @@ namespace excelchop
 
         public class PrintInfoOption : IOption
         {
-            public char ShortName => 'p';
+            public char? ShortName => 'p';
             public string LongName => "print";
             public int ArgsConsumed => 2;
             public string HelpText => "Print information about workbook. w = worksheet names";
@@ -446,7 +518,7 @@ namespace excelchop
 
         public class EscapeNewLinesOption : IOption
         {
-            public char ShortName => 'e';
+            public char? ShortName => 'e';
             public string LongName => "escape";
             public int ArgsConsumed => 1;
             public void OptionUpdate(List<string> args, ConvertOptions options)
@@ -465,7 +537,7 @@ namespace excelchop
 
         public class ConvertOptions
         {
-            public string Filename;
+            public string? Filename;
             public string Range = "A1:B10";
             public bool RangeSpecified = false;
             public bool HelpWanted = false;
@@ -474,6 +546,7 @@ namespace excelchop
             public string Delimiter = "\t";
             public bool VersionWanted = false;
             public string DateFormat = "yyyy-MM-dd";
+            public int? SignificantDigits = null;
             public RowCheckFunction RowInvalid = AllFieldsAnyBlank;
             public PrintOption PrintOption = PrintOption.Data;
             public bool EscapeNewlines = false;
@@ -481,5 +554,42 @@ namespace excelchop
 
         public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);
 
+    }
+
+    public class ExcelChopKnownException : Exception
+    {
+        private readonly string _message;
+
+        public ExcelChopKnownException(string message)
+        {
+            _message = message;
+        }
+        public override string Message => _message;
+    }
+
+    public static class NumericExtensions
+    {
+        public static string ToSigFigs(this double value, int sigFigs)
+        {
+            if (value == 0) return "0";
+            int log = (int)Math.Floor(Math.Log10(Math.Abs(value)));
+            var digits = Math.Max(0, sigFigs - 1 - log);
+
+            string fullString = value.ToString("f" + digits);
+
+            if (digits == 0) return fullString;
+
+            // Trim trailing zeros when there is a decimal
+            int i = fullString.Length - 1;
+            while (i > 0 && fullString[i] == '0')
+            {
+                i--;
+            }
+            if (fullString[i] == '.')
+            {
+                i--;
+            }
+            return fullString.Substring(0, i + 1);
+        }
     }
 }

@@ -44,5 +44,17 @@ namespace excelchop
             .Select(s => int.TryParse(s.Trim(), out int col) ? col : s.Trim().ExcelColumnNameToInt())
             .ToList();
         }
+
+        public static string EndWithSingleNewline(this string? inputString)
+        {
+            // Handle null or empty strings
+            if (string.IsNullOrEmpty(inputString)) return "";
+
+            // If a string also has multiple newlines, return with just 1 at the end
+            var i = inputString.Length - 1;
+
+            while (i >= 0 && inputString[i] == '\n') i--;
+            return inputString.Substring(0, i + 1) + "\n";
+        }
     }
 }
