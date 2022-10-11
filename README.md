@@ -54,3 +54,7 @@ The self-contained versions will run without any other prerequisites, but are la
 1. Extract the `linux-x64-self-contained.zip` or `linux-x64-framework-dependent.zip` file.
 2. Symlink the `excelchop` binary to a location in `PATH`.
 
+
+## Related Projects
+
+- [`xlsx2csv`](https://github.com/tealeg/xlsx2csv)
