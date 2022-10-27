@@ -78,7 +78,7 @@ namespace excelchop
 
             if (opts.VersionWanted)
             {
-                Console.Out.Write("0.3.0 - 2022-05-20\n");
+                Console.Out.Write("0.4.0 - 2022-10-27\n");
                 return;
             }
 
@@ -117,6 +117,8 @@ namespace excelchop
 
             FileInfo fileInfo = new FileInfo(fullPath);
 
+            List<ExcelWorksheet> sheets = new List<ExcelWorksheet>();
+
             using (ExcelPackage excelFile = new ExcelPackage(fileInfo))
             {
 
@@ -126,23 +128,26 @@ namespace excelchop
                     return;
                 }
 
-                ExcelWorksheet sheet;
+                //ExcelWorksheet sheet;
                 if (options.SheetSpecified)
                 {
-                    if (excelFile.Workbook.Worksheets.Select(s => s.Name).Contains(options.WorksheetName))
+                    HashSet<string> availableWorksheetNames = excelFile.Workbook.Worksheets.Select(worksheet => worksheet.Name).ToHashSet();
+
+                    foreach (string worksheetName in options.WorksheetNames)
                     {
-                        sheet = excelFile.Workbook.Worksheets[options.WorksheetName];
-                    }
-                    else
-                    {
-                        Console.Error.Write($"No worksheet named {options.WorksheetName} found in {fullPath}.\n");
-                        Environment.ExitCode = 1;
-                        return;
+                        if (!availableWorksheetNames.Contains(worksheetName))
+                        {
+                            Console.Error.Write($"No worksheet named {worksheetName} found in {fullPath}.\n");
+                            Environment.ExitCode = 1;
+                            return;
+                        }
+
+                        sheets.Add(excelFile.Workbook.Worksheets[worksheetName]);
                     }
                 }
                 else
                 {
-                    if (excelFile.Workbook.Worksheets.Any()) sheet = excelFile.Workbook.Worksheets.First();
+                    if (excelFile.Workbook.Worksheets.Any()) sheets = new List<ExcelWorksheet> {excelFile.Workbook.Worksheets.First()};
                     else
                     {
                         Console.Error.Write($"There are no worksheets in {fullPath}.\n");
@@ -151,102 +156,103 @@ namespace excelchop
                     }
                 }
 
-                if (options.RangeSpecified)
+                foreach (ExcelWorksheet sheet in sheets)
                 {
-                    var splitRange = options.Range.Split(':');
-
-                    // This handles the normal cases of explicit ranges, like A1:C3 or just a
-                    // single cell A2
-                    if (splitRange.Length == 1)
+                    if (options.RangeSpecified)
                     {
-                        var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell? cellLocation);
+                        var splitRange = options.Range.Split(':');
 
-                        if (success)
+                        // This handles the normal cases of explicit ranges, like A1:C3 or just a
+                        // single cell A2
+                        if (splitRange.Length == 1)
                         {
-                            string output = GetOutput(options, cellLocation!.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
-                            Console.Out.Write(output);
-                        }
-                        else
-                        {
-                            Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
-                            Environment.ExitCode = 1;
-                        }
-                    }
-                    else if (splitRange.Length == 2)
-                    {
-                        var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell? startCellLocation);
-                        var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell? endCellLocation);
+                            var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell? cellLocation);
 
-                        if (firstCellSuccess && secondCellSuccess)
-                        {
-                            string output = GetOutput(options, startCellLocation!.Row, endCellLocation!.Row, startCellLocation.Column, endCellLocation.Column, sheet);
-                            Console.Out.Write(output);
-                        }
-                        else
-                        {
-                            Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
-                            Environment.ExitCode = 1;
-                        }
-                    }
-                    else if (splitRange.Length == 3)
-                    {
-                        string[] rangeInputs = options.Range.Split(':');
-
-                        bool success = int.TryParse(rangeInputs[0], out int startRow);
-                        if (!success)
-                        {
-                            Console.Error.Write($"Could not parse the start line {rangeInputs[0]} in the range specifier {options.Range}.\n");
-                            Environment.ExitCode = 1;
-                            return;
-                        }
-
-                        string startColumn = rangeInputs[1];
-                        string endColumn = rangeInputs[2];
-
-                        int startColumnInt = startColumn.ExcelColumnNameToInt();
-                        int endColumnInt = endColumn.ExcelColumnNameToInt();
-                        int columnCount = endColumnInt - startColumnInt + 1;
-                        List<int> columnNumbers = Enumerable.Range(startColumnInt, columnCount).ToList();
-
-                        Func<int, bool> rowInvalid = options.RowInvalid(sheet, startColumn, endColumn);
-
-                        int currentRow = startRow;
-
-                        List<string> records = new List<string>();
-                        while (!rowInvalid(currentRow))
-                        {
-                            int row = currentRow;
-                            IEnumerable<string> fields;
-                            if (options.EscapeNewlines)
+                            if (success)
                             {
-                                fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits).EscapeNewlines());
+                                string output = GetOutput(options, cellLocation!.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
+                                Console.Out.Write(output);
                             }
                             else
                             {
-                                fields = columnNumbers.Select(col =>
-                                    CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits)
-                                        .Replace("\r", "")
-                                        .Replace("\n", " "));
+                                Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
+                                Environment.ExitCode = 1;
                             }
-                            records.Add(string.Join(options.Delimiter, fields) + "\n");
-                            currentRow++;
                         }
+                        else if (splitRange.Length == 2)
+                        {
+                            var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell? startCellLocation);
+                            var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell? endCellLocation);
 
-                        string output = string.Concat(records);
+                            if (firstCellSuccess && secondCellSuccess)
+                            {
+                                string output = GetOutput(options, startCellLocation!.Row, endCellLocation!.Row, startCellLocation.Column, endCellLocation.Column, sheet);
+                                Console.Out.Write(output);
+                            }
+                            else
+                            {
+                                Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
+                                Environment.ExitCode = 1;
+                            }
+                        }
+                        else if (splitRange.Length == 3)
+                        {
+                            bool success = int.TryParse(splitRange[0], out int startRow);
+                            if (!success)
+                            {
+                                Console.Error.Write($"Could not parse the start line {splitRange[0]} in the range specifier {options.Range}.\n");
+                                Environment.ExitCode = 1;
+                                return;
+                            }
+
+                            string startColumn = splitRange[1];
+                            string endColumn = splitRange[2];
+
+                            int startColumnInt = startColumn.ExcelColumnNameToInt();
+                            int endColumnInt = endColumn.ExcelColumnNameToInt();
+                            int columnCount = endColumnInt - startColumnInt + 1;
+                            List<int> columnNumbers = Enumerable.Range(startColumnInt, columnCount).ToList();
+
+                            Func<int, bool> rowInvalid = options.RowInvalid(sheet, startColumn, endColumn);
+
+                            int currentRow = startRow;
+
+                            List<string> records = new List<string>();
+                            while (!rowInvalid(currentRow))
+                            {
+                                int row = currentRow;
+                                IEnumerable<string> fields;
+                                if (options.EscapeNewlines)
+                                {
+                                    fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits).EscapeNewlines());
+                                }
+                                else
+                                {
+                                    fields = columnNumbers.Select(col =>
+                                        CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits)
+                                            .Replace("\r", "")
+                                            .Replace("\n", " "));
+                                }
+                                records.Add(string.Join(options.Delimiter, fields) + "\n");
+                                currentRow++;
+                            }
+
+                            string output = string.Concat(records);
+                            Console.Out.Write(output);
+                        }
+                    }
+                    else
+                    {
+                        if (sheet.Dimension == null) return;
+
+                        int startRow = sheet.Dimension.Start.Row;
+                        int endRow = sheet.Dimension.End.Row;
+                        int startColumn = sheet.Dimension.Start.Column;
+                        int endColumn = sheet.Dimension.End.Column;
+
+                        string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
                         Console.Out.Write(output);
                     }
-                }
-                else
-                {
-                    if (sheet.Dimension == null) return;
-
-                    int startRow = sheet.Dimension.Start.Row;
-                    int endRow = sheet.Dimension.End.Row;
-                    int startColumn = sheet.Dimension.Start.Column;
-                    int endColumn = sheet.Dimension.End.Column;
-
-                    string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
-                    Console.Out.Write(output);
                 }
             }
         }
@@ -390,7 +396,8 @@ namespace excelchop
             public void OptionUpdate(List<string> args, ConvertOptions options)
             {
                 options.SheetSpecified = true;
-                options.WorksheetName = args.Last();
+                // ':' is a character that cannot occur in a Worksheet name, so acts as a useful separator.
+                options.WorksheetNames = args.Last().Split(":").ToList();
             }
 
             public string HelpText => "Worksheet name [first sheet]";
@@ -542,7 +549,7 @@ namespace excelchop
             public bool RangeSpecified = false;
             public bool HelpWanted = false;
             public bool SheetSpecified = false;
-            public string WorksheetName = "Sheet 1";
+            public List<string> WorksheetNames = new();
             public string Delimiter = "\t";
             public bool VersionWanted = false;
             public string DateFormat = "yyyy-MM-dd";
