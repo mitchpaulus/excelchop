@@ -38,22 +38,14 @@ characters within a field.
 
 # Installation
 
-See the release pages for downloads.
-There are releases for Windows and Linux, and for each there is one as a single, self contained executable,
-and another as folder for a framework-dependent version.
+See the [release page](https://github.com/mitchpaulus/excelchop/releases) for downloads.
+There are releases for Windows, Linux, and macOS.
+For each operating system there is a standalone and framework dependent build.
+The self contained versions will run without any other prerequisites, but are larger in size.
 The framework-dependent versions require the .NET runtime be already installed.
-The self-contained versions will run without any other prerequisites, but are larger in size.
 
-## Windows
-
-1. Extract the `win-x64-self-contained.zip` or `win-x64-framework-dependent.zip` file.
-2. Add the extracted directory to your `PATH` environment variable.
-
-## Unix
-
-1. Extract the `linux-x64-self-contained.zip` or `linux-x64-framework-dependent.zip` file.
-2. Symlink the `excelchop` binary to a location in `PATH`.
-
+1. Extract the zip file.
+2. Move or symlink the executable file to a location in your `PATH` environment variable.
 
 ## Related Projects
 
