@@ -1,0 +1,47 @@
+name: release
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout Repo
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Build
+        run: dotnet build
+      - name: Test NUnit
+        run: dotnet test
+
+      - name: Publish
+        run: |
+          dotnet publish -r win-x64   --self-contained -o publish-win-x64-self-contained   -c Release -p:DebugType=None -p:PublishSingleFile=true excelchop/excelchop.csproj
+          dotnet publish -r linux-x64 --self-contained -o publish-linux-x64-self-contained -c Release -p:DebugType=None -p:PublishSingleFile=true excelchop/excelchop.csproj
+          dotnet publish -r osx-x64   --self-contained -o publish-osx-x64-self-contained   -c Release -p:DebugType=None -p:PublishSingleFile=true excelchop/excelchop.csproj
+
+          dotnet publish -r win-x64   --no-self-contained -o publish-win-x64-framework-dependent   -c Release -p:DebugType=None -p:PublishSingleFile=true excelchop/excelchop.csproj
+          dotnet publish -r linux-x64 --no-self-contained -o publish-linux-x64-framework-dependent -c Release -p:DebugType=None -p:PublishSingleFile=true excelchop/excelchop.csproj
+          dotnet publish -r osx-x64   --no-self-contained -o publish-osx-x64-framework-dependent   -c Release -p:DebugType=None -p:PublishSingleFile=true excelchop/excelchop.csproj
+
+          zip -j excelchop-win-x64-"$(git tag --points-at)"-self-contained.zip   publish-win-x64-self-contained/*
+          zip -j excelchop-linux-x64-"$(git tag --points-at)"-self-contained.zip publish-linux-x64-self-contained/*
+          zip -j excelchop-osx-x64-"$(git tag --points-at)"-self-contained.zip   publish-osx-x64-self-contained/*
+
+          zip -j excelchop-win-x64-"$(git tag --points-at)"-framework-dependent.zip   publish-win-x64-framework-dependent/*
+          zip -j excelchop-linux-x64-"$(git tag --points-at)"-framework-dependent.zip publish-linux-x64-framework-dependent/*
+          zip -j excelchop-osx-x64-"$(git tag --points-at)"-framework-dependent.zip   publish-osx-x64-framework-dependent/*
+
+      - name: GH Release
+        uses: softprops/action-gh-release@v0.1.14
+        with:
+          fail_on_unmatched_files: true
+          files: "*.zip"
