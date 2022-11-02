@@ -21,4 +21,3 @@ stopping behavior.
 The default delimiter is a tab character and output records are
 separated by a Unix newline. excelchop also removes any newline
 characters within a field.
-
