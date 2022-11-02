@@ -24,12 +24,13 @@ namespace excelchop
                 new StopAllOption(),
                 new PrintInfoOption(),
                 new SigFigsOption(),
+                new AllSheetsOption(),
             };
 
             var argList = args.ToList();
             ConvertOptions opts = new ConvertOptions();
 
-            bool OptionMatches(string arg, IOption option)
+            static bool OptionMatches(string arg, IOption option)
             {
                 if (option.ShortName != null && "-" + option.ShortName == arg) return true;
                 return "--" + option.LongName == arg;
@@ -121,14 +122,12 @@ namespace excelchop
 
             using (ExcelPackage excelFile = new ExcelPackage(fileInfo))
             {
-
                 if (options.PrintOption == PrintOption.Worksheets)
                 {
                     Console.Out.Write(string.Concat(excelFile.Workbook.Worksheets.Select(s => s.Name + '\n')));
                     return;
                 }
 
-                //ExcelWorksheet sheet;
                 if (options.SheetSpecified)
                 {
                     HashSet<string> availableWorksheetNames = excelFile.Workbook.Worksheets.Select(worksheet => worksheet.Name).ToHashSet();
@@ -144,6 +143,10 @@ namespace excelchop
 
                         sheets.Add(excelFile.Workbook.Worksheets[worksheetName]);
                     }
+                }
+                else if (options.AllSheets)
+                {
+                    sheets = excelFile.Workbook.Worksheets.ToList();
                 }
                 else
                 {
@@ -397,7 +400,9 @@ namespace excelchop
             {
                 options.SheetSpecified = true;
                 // ':' is a character that cannot occur in a Worksheet name, so acts as a useful separator.
-                options.WorksheetNames = args.Last().Split(":").ToList();
+                // Also split on newlines, since you can then use this program to print out the worksheet names
+                // and then filter that using awk or something.
+                options.WorksheetNames = args.Last().Split(new[] {':', '\n'}, StringSplitOptions.RemoveEmptyEntries).ToList();
             }
 
             public string HelpText => "Worksheet name [first sheet]";
@@ -536,6 +541,19 @@ namespace excelchop
             public string HelpText => "Escape newlines with '\\n' characters";
         }
 
+        public class AllSheetsOption : IOption
+        {
+            public char? ShortName => null;
+            public string LongName => "all-sheets";
+            public int ArgsConsumed => 1;
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                options.AllSheets = true;
+            }
+
+            public string HelpText => "Extract data from all sheets in the Workbook";
+        }
+
         public enum PrintOption
         {
             Data = 0,
@@ -549,6 +567,7 @@ namespace excelchop
             public bool RangeSpecified = false;
             public bool HelpWanted = false;
             public bool SheetSpecified = false;
+            public bool AllSheets = false;
             public List<string> WorksheetNames = new();
             public string Delimiter = "\t";
             public bool VersionWanted = false;
