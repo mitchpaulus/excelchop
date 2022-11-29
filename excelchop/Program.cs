@@ -10,6 +10,9 @@ namespace excelchop
     {
         static void Main(string[] args)
         {
+            // This is free and open-source software that I do not commercialize.
+            ExcelPackage.LicenseContext = new LicenseContext();
+
             List<IOption> availableOptions = new List<IOption>()
             {
                 new HelpOption(),
@@ -79,7 +82,7 @@ namespace excelchop
 
             if (opts.VersionWanted)
             {
-                Console.Out.Write("0.5.0 - 2022-11-02\n");
+                Console.Out.Write("0.6.0 - 2022-11-29\n");
                 return;
             }
 
