@@ -3,5 +3,6 @@ bin/
 obj/
 Properties/
 *.user
+.idea/
 
 publish/

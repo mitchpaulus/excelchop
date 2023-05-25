@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using OfficeOpenXml;
 
 namespace excelchop
@@ -28,6 +29,7 @@ namespace excelchop
                 new PrintInfoOption(),
                 new SigFigsOption(),
                 new AllSheetsOption(),
+                new InPlaceWriteOption(),
             };
 
             var argList = args.ToList();
@@ -177,7 +179,7 @@ namespace excelchop
                             if (success)
                             {
                                 string output = GetOutput(options, cellLocation!.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
-                                Console.Out.Write(output);
+                                WriteOutput(options, excelFile, output);
                             }
                             else
                             {
@@ -193,7 +195,7 @@ namespace excelchop
                             if (firstCellSuccess && secondCellSuccess)
                             {
                                 string output = GetOutput(options, startCellLocation!.Row, endCellLocation!.Row, startCellLocation.Column, endCellLocation.Column, sheet);
-                                Console.Out.Write(output);
+                                WriteOutput(options, excelFile, output);
                             }
                             else
                             {
@@ -244,7 +246,7 @@ namespace excelchop
                             }
 
                             string output = string.Concat(records);
-                            Console.Out.Write(output);
+                            WriteOutput(options, excelFile, output);
                         }
                     }
                     else
@@ -257,9 +259,29 @@ namespace excelchop
                         int endColumn = sheet.Dimension.End.Column;
 
                         string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
-                        Console.Out.Write(output);
+                        WriteOutput(options, excelFile, output);
                     }
                 }
+            }
+        }
+
+        private static void WriteOutput(ConvertOptions options, ExcelPackage excelFile, string output)
+        {
+            if (options.InPlace)
+            {
+                string outputFile = excelFile.File.FullName.InPlaceName();
+                try
+                {
+                    File.WriteAllText(outputFile, output, Encoding.UTF8);
+                }
+                catch
+                {
+                    Console.Error.Write($"Could not write data out to file '{outputFile}'");
+                }
+            }
+            else
+            {
+                Console.Out.Write(output);
             }
         }
 
@@ -556,6 +578,19 @@ namespace excelchop
 
             public string HelpText => "Extract data from all sheets in the Workbook";
         }
+        
+        public class InPlaceWriteOption : IOption
+        {
+            public char? ShortName => 'i';
+            public string LongName => "in-place";
+            public int ArgsConsumed => 1;
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                options.InPlace = true;
+            }
+
+            public string HelpText => "Write to .tsv with same name as input xlsx file rather than standard output";
+        }
 
         public enum PrintOption
         {
@@ -579,6 +614,7 @@ namespace excelchop
             public RowCheckFunction RowInvalid = AllFieldsAnyBlank;
             public PrintOption PrintOption = PrintOption.Data;
             public bool EscapeNewlines = false;
+            public bool InPlace = false;
         }
 
         public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);

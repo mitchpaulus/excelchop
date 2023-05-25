@@ -56,5 +56,11 @@ namespace excelchop
             while (i >= 0 && inputString[i] == '\n') i--;
             return inputString.Substring(0, i + 1) + "\n";
         }
+        public static string InPlaceName(this string excelFilePath)
+        {
+            return excelFilePath.EndsWith(".xlsx")
+                ? excelFilePath[..^5] + ".tsv"
+                : excelFilePath + ".tsv";
+        }
     }
 }
