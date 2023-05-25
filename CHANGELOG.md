@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.7.0](https://github.com/mitchpaulus/excelchop/compare/v0.6.0...v0.7.0) - 2023-05-25
+
+### Added
+
+- New option `--in-place` or `-i` to write the data to a new TSV file with the same name as the input Excel file.
+
 ## [0.6.0](https://github.com/mitchpaulus/excelchop/compare/v0.5.0...v0.6.0) - 2022-11-29
 
 ### Changed

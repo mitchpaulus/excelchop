@@ -8,7 +8,7 @@
     <RootNamespace>excelchop</RootNamespace>
     <Authors>Mitchell T. Paulus</Authors>
     <Description>Extract information out of Microsoft Excel file to standard output.</Description>
-    <Copyright>2022</Copyright>
+    <Copyright>2023</Copyright>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
