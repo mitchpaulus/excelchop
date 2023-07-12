@@ -30,6 +30,7 @@ namespace excelchop
                 new SigFigsOption(),
                 new AllSheetsOption(),
                 new InPlaceWriteOption(),
+                new NoStripOption(),
             };
 
             var argList = args.ToList();
@@ -45,7 +46,7 @@ namespace excelchop
             {
                 string arg = args[i];
 
-                var option = availableOptions.FirstOrDefault(o => OptionMatches(arg, o));
+                IOption? option = availableOptions.FirstOrDefault(o => OptionMatches(arg, o));
                 if (option == null && i != args.Length - 1)
                 {
                     Console.Error.Write($"Unknown option {arg}\n");
