@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -9,7 +10,7 @@ namespace excelchop
 {
     public static class ExcelUtilities
     {
-        public static bool TryParseCellReference(string cellReference, out Cell? cellLocation)
+        public static bool TryParseCellReference(string cellReference, [NotNullWhen(true)] out Cell? cellLocation)
         {
             string worksheetNamePattern = @"'[^:\\/?*[\]]{1,31}'!";
             string worksheetNumberPattern = @"[1-9]\d*!";

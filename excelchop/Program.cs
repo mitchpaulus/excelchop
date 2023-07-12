@@ -123,7 +123,7 @@ namespace excelchop
 
             FileInfo fileInfo = new FileInfo(fullPath);
 
-            List<ExcelWorksheet> sheets = new List<ExcelWorksheet>();
+            List<ExcelWorksheet> sheets = new();
 
             using (ExcelPackage excelFile = new ExcelPackage(fileInfo))
             {
@@ -155,10 +155,18 @@ namespace excelchop
                 }
                 else
                 {
-                    if (excelFile.Workbook.Worksheets.Any()) sheets = new List<ExcelWorksheet> {excelFile.Workbook.Worksheets.First()};
-                    else
+                    foreach (var s in excelFile.Workbook.Worksheets)
                     {
-                        Console.Error.Write($"There are no worksheets in {fullPath}.\n");
+                        if (s.Hidden == eWorkSheetHidden.Visible)
+                        {
+                            sheets.Add(s);
+                            break;
+                        }
+                    }
+                    
+                    if (!sheets.Any()) 
+                    {
+                        Console.Error.Write($"There are no visible worksheets in {fullPath}.\n");
                         Environment.ExitCode = 1;
                         return;
                     }
@@ -175,7 +183,6 @@ namespace excelchop
                         if (splitRange.Length == 1)
                         {
                             var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell? cellLocation);
-
                             if (success)
                             {
                                 string output = GetOutput(options, cellLocation!.Row, cellLocation.Row, cellLocation.Column, cellLocation.Column, sheet);
@@ -276,7 +283,7 @@ namespace excelchop
                 }
                 catch
                 {
-                    Console.Error.Write($"Could not write data out to file '{outputFile}'");
+                    Console.Error.Write($"Could not write data out to file '{outputFile}'.\n");
                 }
             }
             else
