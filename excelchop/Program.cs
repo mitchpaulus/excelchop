@@ -84,7 +84,7 @@ namespace excelchop
 
             if (opts.VersionWanted)
             {
-                Console.Out.Write("0.7.0 - 2023-05-25\n");
+                Console.Out.Write("0.8.0 - 2023-07-12\n");
                 return;
             }
 
@@ -232,19 +232,19 @@ namespace excelchop
 
                             int currentRow = startRow;
 
-                            List<string> records = new List<string>();
+                            List<string> records = new();
                             while (!rowInvalid(currentRow))
                             {
                                 int row = currentRow;
                                 IEnumerable<string> fields;
                                 if (options.EscapeNewlines)
                                 {
-                                    fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits).EscapeNewlines());
+                                    fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip).EscapeNewlines());
                                 }
                                 else
                                 {
                                     fields = columnNumbers.Select(col =>
-                                        CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits)
+                                        CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip)
                                             .Replace("\r", "")
                                             .Replace("\n", " "));
                                 }
@@ -335,7 +335,7 @@ namespace excelchop
             };
         }
 
-        private static string CellText(ExcelRangeBase range, string dateFormat, int? significantDigits)
+        private static string CellText(ExcelRangeBase range, string dateFormat, int? significantDigits, bool strip)
         {
             if (range.Value is DateTime dateCell)
             {
@@ -355,7 +355,7 @@ namespace excelchop
                 return doubleCell.ToSigFigs((int) significantDigits);
             }
 
-            return range.Text;
+            return strip ? range.Text.Trim() : range.Text;
         }
 
         private static string GetOutput(ConvertOptions options, int startRow, int endRowInc, int startColumn, int endColumnInc, ExcelWorksheet sheet)
@@ -370,11 +370,11 @@ namespace excelchop
                     // Remove all newlines as they wreck everything.
                     if (options.EscapeNewlines)
                     {
-                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits).EscapeNewlines();
+                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits, options.Strip).EscapeNewlines();
                     }
                     else
                     {
-                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits)
+                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits, options.Strip)
                             .Replace("\r", "")
                             .Replace("\n", " ");
                     }
@@ -598,6 +598,19 @@ namespace excelchop
 
             public string HelpText => "Write to .tsv with same name as input xlsx file rather than standard output";
         }
+        
+        public class NoStripOption : IOption
+        {
+            public char? ShortName { get; } = null;
+            public string LongName { get; } = "no-strip";
+            public int ArgsConsumed { get; } = 1;
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                options.Strip = false;
+            }
+
+            public string HelpText { get; } = "Don't strip whitespace from beginning and end of cell contents";
+        }
 
         public enum PrintOption
         {
@@ -622,6 +635,7 @@ namespace excelchop
             public PrintOption PrintOption = PrintOption.Data;
             public bool EscapeNewlines = false;
             public bool InPlace = false;
+            public bool Strip { get; set; } = true;
         }
 
         public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);
