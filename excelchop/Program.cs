@@ -178,7 +178,7 @@ namespace excelchop
 
                             if (success)
                             {
-                                string output = GetOutput(options, cellLocation!.Row, cellLocation.Column, cellLocation.Row, cellLocation.Column, sheet);
+                                string output = GetOutput(options, cellLocation!.Row, cellLocation.Row, cellLocation.Column, cellLocation.Column, sheet);
                                 WriteOutput(options, excelFile, output);
                             }
                             else
