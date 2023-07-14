@@ -85,7 +85,7 @@ namespace excelchop
 
             if (opts.VersionWanted)
             {
-                Console.Out.Write("0.8.0 - 2023-07-12\n");
+                Console.Out.Write("0.8.0 - 2023-07-14\n");
                 return;
             }
 
