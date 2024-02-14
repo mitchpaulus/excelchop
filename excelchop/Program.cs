@@ -126,149 +126,147 @@ namespace excelchop
 
             List<ExcelWorksheet> sheets = new();
 
-            using (ExcelPackage excelFile = new ExcelPackage(fileInfo))
+            using ExcelPackage excelFile = new ExcelPackage(fileInfo);
+            if (options.PrintOption == PrintOption.Worksheets)
             {
-                if (options.PrintOption == PrintOption.Worksheets)
+                Console.Out.Write(string.Concat(excelFile.Workbook.Worksheets.Select(s => s.Name + '\n')));
+                return;
+            }
+
+            if (options.SheetSpecified)
+            {
+                HashSet<string> availableWorksheetNames = excelFile.Workbook.Worksheets.Select(worksheet => worksheet.Name).ToHashSet();
+
+                foreach (string worksheetName in options.WorksheetNames)
                 {
-                    Console.Out.Write(string.Concat(excelFile.Workbook.Worksheets.Select(s => s.Name + '\n')));
-                    return;
+                    if (!availableWorksheetNames.Contains(worksheetName))
+                    {
+                        Console.Error.Write($"No worksheet named {worksheetName} found in {fullPath}.\n");
+                        Environment.ExitCode = 1;
+                        return;
+                    }
+
+                    sheets.Add(excelFile.Workbook.Worksheets[worksheetName]);
+                }
+            }
+            else if (options.AllSheets)
+            {
+                sheets = excelFile.Workbook.Worksheets.ToList();
+            }
+            else
+            {
+                foreach (var s in excelFile.Workbook.Worksheets)
+                {
+                    if (s.Hidden == eWorkSheetHidden.Visible)
+                    {
+                        sheets.Add(s);
+                        break;
+                    }
                 }
 
-                if (options.SheetSpecified)
+                if (!sheets.Any())
                 {
-                    HashSet<string> availableWorksheetNames = excelFile.Workbook.Worksheets.Select(worksheet => worksheet.Name).ToHashSet();
+                    Console.Error.Write($"There are no visible worksheets in {fullPath}.\n");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+            }
 
-                    foreach (string worksheetName in options.WorksheetNames)
+            foreach (ExcelWorksheet sheet in sheets)
+            {
+                if (options.RangeSpecified)
+                {
+                    var splitRange = options.Range.Split(':');
+
+                    // This handles the normal cases of explicit ranges, like A1:C3 or just a
+                    // single cell A2
+                    if (splitRange.Length == 1)
                     {
-                        if (!availableWorksheetNames.Contains(worksheetName))
+                        var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell? cellLocation);
+                        if (success)
                         {
-                            Console.Error.Write($"No worksheet named {worksheetName} found in {fullPath}.\n");
+                            string output = GetOutput(options, cellLocation!.Row, cellLocation.Row, cellLocation.Column, cellLocation.Column, sheet);
+                            WriteOutput(options, excelFile, output);
+                        }
+                        else
+                        {
+                            Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
+                            Environment.ExitCode = 1;
+                        }
+                    }
+                    else if (splitRange.Length == 2)
+                    {
+                        var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell? startCellLocation);
+                        var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell? endCellLocation);
+
+                        if (firstCellSuccess && secondCellSuccess)
+                        {
+                            string output = GetOutput(options, startCellLocation!.Row, endCellLocation!.Row, startCellLocation.Column, endCellLocation.Column, sheet);
+                            WriteOutput(options, excelFile, output);
+                        }
+                        else
+                        {
+                            Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
+                            Environment.ExitCode = 1;
+                        }
+                    }
+                    else if (splitRange.Length == 3)
+                    {
+                        bool success = int.TryParse(splitRange[0], out int startRow);
+                        if (!success)
+                        {
+                            Console.Error.Write($"Could not parse the start line {splitRange[0]} in the range specifier {options.Range}.\n");
                             Environment.ExitCode = 1;
                             return;
                         }
 
-                        sheets.Add(excelFile.Workbook.Worksheets[worksheetName]);
+                        string startColumn = splitRange[1];
+                        string endColumn = splitRange[2];
+
+                        int startColumnInt = startColumn.ExcelColumnNameToInt();
+                        int endColumnInt = endColumn.ExcelColumnNameToInt();
+                        int columnCount = endColumnInt - startColumnInt + 1;
+                        List<int> columnNumbers = Enumerable.Range(startColumnInt, columnCount).ToList();
+
+                        Func<int, bool> rowInvalid = options.RowInvalid(sheet, startColumn, endColumn);
+
+                        int currentRow = startRow;
+
+                        List<string> records = new();
+                        while (!rowInvalid(currentRow))
+                        {
+                            int row = currentRow;
+                            IEnumerable<string> fields;
+                            if (options.EscapeNewlines)
+                            {
+                                fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip).EscapeNewlines());
+                            }
+                            else
+                            {
+                                fields = columnNumbers.Select(col =>
+                                    CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip)
+                                        .Replace("\r", "")
+                                        .Replace("\n", " "));
+                            }
+                            records.Add(string.Join(options.Delimiter, fields) + "\n");
+                            currentRow++;
+                        }
+
+                        string output = string.Concat(records);
+                        WriteOutput(options, excelFile, output);
                     }
-                }
-                else if (options.AllSheets)
-                {
-                    sheets = excelFile.Workbook.Worksheets.ToList();
                 }
                 else
                 {
-                    foreach (var s in excelFile.Workbook.Worksheets)
-                    {
-                        if (s.Hidden == eWorkSheetHidden.Visible)
-                        {
-                            sheets.Add(s);
-                            break;
-                        }
-                    }
-                    
-                    if (!sheets.Any()) 
-                    {
-                        Console.Error.Write($"There are no visible worksheets in {fullPath}.\n");
-                        Environment.ExitCode = 1;
-                        return;
-                    }
-                }
+                    if (sheet.Dimension == null) return;
 
-                foreach (ExcelWorksheet sheet in sheets)
-                {
-                    if (options.RangeSpecified)
-                    {
-                        var splitRange = options.Range.Split(':');
+                    int startRow = sheet.Dimension.Start.Row;
+                    int endRow = sheet.Dimension.End.Row;
+                    int startColumn = sheet.Dimension.Start.Column;
+                    int endColumn = sheet.Dimension.End.Column;
 
-                        // This handles the normal cases of explicit ranges, like A1:C3 or just a
-                        // single cell A2
-                        if (splitRange.Length == 1)
-                        {
-                            var success = ExcelUtilities.TryParseCellReference(options.Range, out Cell? cellLocation);
-                            if (success)
-                            {
-                                string output = GetOutput(options, cellLocation!.Row, cellLocation.Row, cellLocation.Column, cellLocation.Column, sheet);
-                                WriteOutput(options, excelFile, output);
-                            }
-                            else
-                            {
-                                Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
-                                Environment.ExitCode = 1;
-                            }
-                        }
-                        else if (splitRange.Length == 2)
-                        {
-                            var firstCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[0], out Cell? startCellLocation);
-                            var secondCellSuccess = ExcelUtilities.TryParseCellReference(splitRange[1], out Cell? endCellLocation);
-
-                            if (firstCellSuccess && secondCellSuccess)
-                            {
-                                string output = GetOutput(options, startCellLocation!.Row, endCellLocation!.Row, startCellLocation.Column, endCellLocation.Column, sheet);
-                                WriteOutput(options, excelFile, output);
-                            }
-                            else
-                            {
-                                Console.Error.Write($"Could not parse cell reference {options.Range}.\n");
-                                Environment.ExitCode = 1;
-                            }
-                        }
-                        else if (splitRange.Length == 3)
-                        {
-                            bool success = int.TryParse(splitRange[0], out int startRow);
-                            if (!success)
-                            {
-                                Console.Error.Write($"Could not parse the start line {splitRange[0]} in the range specifier {options.Range}.\n");
-                                Environment.ExitCode = 1;
-                                return;
-                            }
-
-                            string startColumn = splitRange[1];
-                            string endColumn = splitRange[2];
-
-                            int startColumnInt = startColumn.ExcelColumnNameToInt();
-                            int endColumnInt = endColumn.ExcelColumnNameToInt();
-                            int columnCount = endColumnInt - startColumnInt + 1;
-                            List<int> columnNumbers = Enumerable.Range(startColumnInt, columnCount).ToList();
-
-                            Func<int, bool> rowInvalid = options.RowInvalid(sheet, startColumn, endColumn);
-
-                            int currentRow = startRow;
-
-                            List<string> records = new();
-                            while (!rowInvalid(currentRow))
-                            {
-                                int row = currentRow;
-                                IEnumerable<string> fields;
-                                if (options.EscapeNewlines)
-                                {
-                                    fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip).EscapeNewlines());
-                                }
-                                else
-                                {
-                                    fields = columnNumbers.Select(col =>
-                                        CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip)
-                                            .Replace("\r", "")
-                                            .Replace("\n", " "));
-                                }
-                                records.Add(string.Join(options.Delimiter, fields) + "\n");
-                                currentRow++;
-                            }
-
-                            string output = string.Concat(records);
-                            WriteOutput(options, excelFile, output);
-                        }
-                    }
-                    else
-                    {
-                        if (sheet.Dimension == null) return;
-
-                        int startRow = sheet.Dimension.Start.Row;
-                        int endRow = sheet.Dimension.End.Row;
-                        int startColumn = sheet.Dimension.Start.Column;
-                        int endColumn = sheet.Dimension.End.Column;
-
-                        string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
-                        WriteOutput(options, excelFile, output);
-                    }
+                    string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
+                    WriteOutput(options, excelFile, output);
                 }
             }
         }
@@ -586,7 +584,7 @@ namespace excelchop
 
             public string HelpText => "Extract data from all sheets in the Workbook";
         }
-        
+
         public class InPlaceWriteOption : IOption
         {
             public char? ShortName => 'i';
@@ -599,7 +597,7 @@ namespace excelchop
 
             public string HelpText => "Write to .tsv with same name as input xlsx file rather than standard output";
         }
-        
+
         public class NoStripOption : IOption
         {
             public char? ShortName { get; } = null;
