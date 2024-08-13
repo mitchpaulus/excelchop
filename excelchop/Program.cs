@@ -98,6 +98,19 @@ namespace excelchop
                 Environment.ExitCode = 1;
                 Console.Error.Write(knownException.Message.EndWithSingleNewline());
             }
+            catch (IOException ioException)
+            {
+                if (ioException.Message.Contains("The process cannot access the file") && ioException.Message.Contains("because it is being used by another process"))
+                {
+                    Console.Error.Write(ioException.Message);
+                    if (!ioException.Message.EndsWith('\n')) Console.Error.Write('\n');
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                // Else rethrow.
+                throw;
+            }
             catch
             {
                 Environment.ExitCode = 1;
