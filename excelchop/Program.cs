@@ -367,6 +367,7 @@ namespace excelchop
                 return doubleCell.ToSigFigs((int) significantDigits);
             }
 
+            if (range.Text is null) return "";
             return strip ? range.Text.Trim() : range.Text;
         }
 
