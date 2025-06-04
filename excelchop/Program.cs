@@ -670,25 +670,12 @@ namespace excelchop
     {
         public static string ToSigFigs(this double value, int sigFigs)
         {
-            if (value == 0) return "0";
+            if (value == 0) return 0.ToString($"f{sigFigs - 1}");
             int log = (int)Math.Floor(Math.Log10(Math.Abs(value)));
             var digits = Math.Max(0, sigFigs - 1 - log);
 
             string fullString = value.ToString("f" + digits);
-
-            if (digits == 0) return fullString;
-
-            // Trim trailing zeros when there is a decimal
-            int i = fullString.Length - 1;
-            while (i > 0 && fullString[i] == '0')
-            {
-                i--;
-            }
-            if (fullString[i] == '.')
-            {
-                i--;
-            }
-            return fullString.Substring(0, i + 1);
+            return fullString;
         }
     }
 }
