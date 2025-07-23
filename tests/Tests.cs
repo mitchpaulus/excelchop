@@ -58,7 +58,7 @@ public class Tests
 
         testDouble = 2.000000001;
         testSigFigs = 3;
-        expected = "2";
+        expected = "2.00";
         Assert.AreEqual(expected, testDouble.ToSigFigs(testSigFigs));
 
         testDouble = 123456789;
