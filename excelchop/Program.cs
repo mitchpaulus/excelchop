@@ -273,9 +273,9 @@ namespace excelchop
                 {
                     if (sheet.Dimension == null) return;
 
-                    int startRow = sheet.Dimension.Start.Row;
+                    int startRow = 1;
                     int endRow = sheet.Dimension.End.Row;
-                    int startColumn = sheet.Dimension.Start.Column;
+                    int startColumn = 1;
                     int endColumn = sheet.Dimension.End.Column;
 
                     string output = GetOutput(options, startRow, endRow, startColumn, endColumn, sheet);
