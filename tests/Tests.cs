@@ -71,4 +71,27 @@ public class Tests
         expected = "100000000";
         Assert.AreEqual(expected, testDouble.ToSigFigs(testSigFigs));
     }
+
+    [Test]
+    public void TestCsvEscape()
+    {
+        // No escaping needed for simple strings
+        Assert.AreEqual("Hello", "Hello".CsvEscape());
+        Assert.AreEqual("", "".CsvEscape());
+
+        // Fields with commas must be quoted
+        Assert.AreEqual("\"Hello, World\"", "Hello, World".CsvEscape());
+
+        // Fields with double quotes must be quoted and quotes doubled
+        Assert.AreEqual("\"Say \"\"Hello\"\"\"", "Say \"Hello\"".CsvEscape());
+
+        // Fields with newlines must be quoted
+        Assert.AreEqual("\"Line1\nLine2\"", "Line1\nLine2".CsvEscape());
+
+        // Fields with carriage returns must be quoted
+        Assert.AreEqual("\"Line1\r\nLine2\"", "Line1\r\nLine2".CsvEscape());
+
+        // Combined: comma and quote
+        Assert.AreEqual("\"Hello, \"\"World\"\"\"", "Hello, \"World\"".CsvEscape());
+    }
 }

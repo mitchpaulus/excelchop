@@ -62,5 +62,18 @@ namespace excelchop
                 ? excelFilePath[..^5] + ".tsv"
                 : excelFilePath + ".tsv";
         }
+
+        public static string CsvEscape(this string field)
+        {
+            // RFC 4180: Fields containing commas, double quotes, or line breaks must be enclosed in double quotes.
+            // Double quotes within fields must be escaped by doubling them.
+            bool needsQuoting = field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r');
+
+            if (!needsQuoting) return field;
+
+            // Escape double quotes by doubling them
+            string escaped = field.Replace("\"", "\"\"");
+            return $"\"{escaped}\"";
+        }
     }
 }

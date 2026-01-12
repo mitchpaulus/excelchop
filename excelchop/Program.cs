@@ -31,6 +31,7 @@ namespace excelchop
                 new AllSheetsOption(),
                 new InPlaceWriteOption(),
                 new NoStripOption(),
+                new CsvOption(),
             };
 
             var argList = args.ToList();
@@ -245,12 +246,19 @@ namespace excelchop
 
                         int currentRow = startRow;
 
+                        string delimiter = options.CsvOutput ? "," : options.Delimiter;
+                        string lineEnding = options.CsvOutput ? "\r\n" : "\n";
+
                         List<string> records = new();
                         while (!rowInvalid(currentRow))
                         {
                             int row = currentRow;
                             IEnumerable<string> fields;
-                            if (options.EscapeNewlines)
+                            if (options.CsvOutput)
+                            {
+                                fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip).CsvEscape());
+                            }
+                            else if (options.EscapeNewlines)
                             {
                                 fields = columnNumbers.Select(col => CellText(sheet.Cells[row, col], options.DateFormat, options.SignificantDigits, options.Strip).EscapeNewlines());
                             }
@@ -261,7 +269,7 @@ namespace excelchop
                                         .Replace("\r", "")
                                         .Replace("\n", " "));
                             }
-                            records.Add(string.Join(options.Delimiter, fields) + "\n");
+                            records.Add(string.Join(delimiter, fields) + lineEnding);
                             currentRow++;
                         }
 
@@ -380,8 +388,12 @@ namespace excelchop
                 for (int column = startColumn; column <= endColumnInc; column++)
                 {
                     string cleanText;
-                    // Remove all newlines as they wreck everything.
-                    if (options.EscapeNewlines)
+                    if (options.CsvOutput)
+                    {
+                        // RFC 4180 CSV: escape fields that contain comma, double quote, or newlines
+                        cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits, options.Strip).CsvEscape();
+                    }
+                    else if (options.EscapeNewlines)
                     {
                         cleanText = CellText(sheet.Cells[row, column], options.DateFormat, options.SignificantDigits, options.Strip).EscapeNewlines();
                     }
@@ -395,7 +407,9 @@ namespace excelchop
                 }
             }
 
-            IEnumerable<string> lines = values.Select(list => string.Join(options.Delimiter, list) + "\n");
+            string delimiter = options.CsvOutput ? "," : options.Delimiter;
+            string lineEnding = options.CsvOutput ? "\r\n" : "\n";
+            IEnumerable<string> lines = values.Select(list => string.Join(delimiter, list) + lineEnding);
             string output = string.Concat(lines);
             return output;
         }
@@ -625,6 +639,19 @@ namespace excelchop
             public string HelpText { get; } = "Don't strip whitespace from beginning and end of cell contents";
         }
 
+        public class CsvOption : IOption
+        {
+            public char? ShortName { get; } = null;
+            public string LongName { get; } = "csv";
+            public int ArgsConsumed { get; } = 1;
+            public void OptionUpdate(List<string> args, ConvertOptions options)
+            {
+                options.CsvOutput = true;
+            }
+
+            public string HelpText { get; } = "Output in RFC 4180 CSV format (UTF-8)";
+        }
+
         public enum PrintOption
         {
             Data = 0,
@@ -649,6 +676,7 @@ namespace excelchop
             public bool EscapeNewlines = false;
             public bool InPlace = false;
             public bool Strip { get; set; } = true;
+            public bool CsvOutput = false;
         }
 
         public delegate Func<int, bool> RowCheckFunction(ExcelWorksheet sheet, string startColumnInc, string endColumnInc);
