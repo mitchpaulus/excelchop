@@ -4,5 +4,6 @@ obj/
 Properties/
 *.user
 .idea/
+.claude/
 
 publish/
