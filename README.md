@@ -34,7 +34,7 @@ once it reaches a row in which all the values are empty or whitespace.
 
 The default delimiter is a tab character and output records are
 separated by a Unix newline. `excelchop` also removes any newline
-characters within a field.
+characters within a field. Output is UTF-8 encoded without a BOM.
 
 # Installation
 

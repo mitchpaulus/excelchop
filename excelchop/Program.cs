@@ -11,6 +11,8 @@ namespace excelchop
     {
         static void Main(string[] args)
         {
+            ConfigureConsoleEncoding();
+
             // This is free and open-source software that I do not commercialize.
             ExcelPackage.LicenseContext = new LicenseContext();
 
@@ -117,6 +119,14 @@ namespace excelchop
                 Environment.ExitCode = 1;
                 Console.Error.Write("There was an unhandled exception. Please feel free to open an issue on GitHub at https://github.com/mitchpaulus/excelchop.\n");
             }
+        }
+
+        private static void ConfigureConsoleEncoding()
+        {
+            var utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+            Console.OutputEncoding = utf8NoBom;
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), utf8NoBom) { AutoFlush = true });
+            Console.SetError(new StreamWriter(Console.OpenStandardError(), utf8NoBom) { AutoFlush = true });
         }
 
         private static void Run(ConvertOptions options)
